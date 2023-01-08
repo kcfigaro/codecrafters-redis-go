@@ -9,6 +9,20 @@ import (
 	// "os"
 )
 
+func handleRequest(conn net.Conn) {
+	buffer := make([]byte, 1024)
+	_, err := conn.Read(buffer)
+	if err != nil {
+		fmt.Println("Error to read buffer")
+	}
+
+	// write response message
+	resStr := fmt.Sprintf("+PONG\r\n")
+	conn.Write([]byte(resStr))
+
+	conn.Close()
+}
+
 func main() {
 	// You can use print statements as follows for debugging, they'll be visible when running tests.
 	fmt.Println("Logs from your program will appear here!")
@@ -19,9 +33,14 @@ func main() {
 		os.Exit(1)
 	}
 
-	_, err = l.Accept()
-	if err != nil {
-		fmt.Println("Error connection: ", err.Error())
-		os.Exit(1)
+	defer l.Close()
+
+	for {
+		conn, err := l.Accept()
+		if err != nil {
+			fmt.Println("Error connection: ", err.Error())
+			os.Exit(1)
+		}
+		go handleRequest(conn)
 	}
 }
