@@ -2,45 +2,62 @@ package main
 
 import (
 	"fmt"
+	"log"
 	"net"
 	"os"
-	// Uncomment this block to pass the first stage
-	// "net"
-	// "os"
+	"sync"
 )
 
-func handleRequest(conn net.Conn) {
-	buffer := make([]byte, 1024)
-	_, err := conn.Read(buffer)
-	if err != nil {
-		fmt.Println("Error to read buffer")
+func handleConnection(c net.Conn, wg *sync.WaitGroup) {
+	// fmt.Println("Connection established")
+	defer wg.Done()
+	for {
+		buf := make([]byte, 1024)
+		len, err := c.Read(buf)
+
+		if err != nil {
+			log.Fatal(err)
+		}
+
+		str := string(buf[:len])
+		// fmt.Println(str)
+
+		switch str {
+		case "PING\r\n":
+			sendResponse("PONG", c)
+		case "QUIT\r\n":
+			sendResponse("Goodbye", c)
+			c.Close()
+		}
+		s := fmt.Sprintf("+PONG\r\n")
+		c.Write([]byte(s))
 	}
+}
 
-	// write response message
-	resStr := fmt.Sprintf("+PONG\r\n")
-	conn.Write([]byte(resStr))
-
-	conn.Close()
+func sendResponse(res string, conn net.Conn) {
+	// time.Sleep(1 * time.Second)
+	conn.Write([]byte(res + "\n"))
 }
 
 func main() {
-	// You can use print statements as follows for debugging, they'll be visible when running tests.
-	fmt.Println("Logs from your program will appear here!")
+	ln, err := net.Listen("tcp", "0.0.0.0:6379")
 
-	l, err := net.Listen("tcp", "0.0.0.0:6379")
 	if err != nil {
-		fmt.Println("Failed to bind to port 6379")
+		fmt.Println("Error to listen 6379")
 		os.Exit(1)
 	}
 
-	defer l.Close()
+	defer ln.Close()
+	wg := new(sync.WaitGroup)
 
 	for {
-		conn, err := l.Accept()
+		conn, err := ln.Accept()
 		if err != nil {
-			fmt.Println("Error connection: ", err.Error())
-			os.Exit(1)
+			log.Fatal(err)
 		}
-		go handleRequest(conn)
+		wg.Add(1)
+		go handleConnection(conn, wg)
+		wg.Wait()
+		conn.Close()
 	}
 }
