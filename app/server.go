@@ -1,42 +1,32 @@
 package main
 
 import (
+	"bufio"
 	"fmt"
 	"log"
 	"net"
 	"os"
-	"sync"
 )
 
-func handleConnection(c net.Conn, wg *sync.WaitGroup) {
+func handleConnection(c net.Conn) {
 	// fmt.Println("Connection established")
-	defer wg.Done()
-	for {
-		buf := make([]byte, 1024)
-		len, err := c.Read(buf)
-
-		if err != nil {
-			log.Fatal(err)
-		}
-
-		str := string(buf[:len])
+	defer c.Close()
+	scanner := bufio.NewScanner(c)
+	for scanner.Scan() {
+		str := scanner.Text()
 		// fmt.Println(str)
 
 		switch str {
-		case "PING\r\n":
-			sendResponse("PONG", c)
-		case "QUIT\r\n":
-			sendResponse("Goodbye", c)
-			c.Close()
+		case "ping":
+			responseConnection("PONG", c)
+		case "quit":
+			responseConnection("QUIT", c)
 		}
-		s := fmt.Sprintf("+PONG\r\n")
-		c.Write([]byte(s))
 	}
 }
 
-func sendResponse(res string, conn net.Conn) {
-	// time.Sleep(1 * time.Second)
-	conn.Write([]byte(res + "\n"))
+func responseConnection(s string, c net.Conn) {
+	c.Write([]byte("+" + s + "\r\n"))
 }
 
 func main() {
@@ -48,16 +38,12 @@ func main() {
 	}
 
 	defer ln.Close()
-	wg := new(sync.WaitGroup)
 
 	for {
 		conn, err := ln.Accept()
 		if err != nil {
-			log.Fatal(err)
+			log.Println(err)
 		}
-		wg.Add(1)
-		go handleConnection(conn, wg)
-		wg.Wait()
-		conn.Close()
+		go handleConnection(conn)
 	}
 }
