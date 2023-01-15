@@ -1,26 +1,41 @@
 package main
 
 import (
-	"bufio"
 	"fmt"
+	"io"
 	"log"
 	"net"
 	"os"
+	"strings"
 )
 
-func handleConnection(c net.Conn) {
-	// fmt.Println("Connection established")
-	defer c.Close()
-	scanner := bufio.NewScanner(c)
-	for scanner.Scan() {
-		str := scanner.Text()
-		// fmt.Println(str)
+func handleBufferConn(conn net.Conn) {
+	defer conn.Close()
 
-		switch str {
+	buf := make([]byte, 1024)
+	var msg []string
+
+	for {
+		// read buf bytes from conn
+		n, err := conn.Read(buf)
+		// fmt.Printf("%d byte, data: %s\n", n, buf[:n])
+		msg = append(msg, string(buf[:n]))
+		if err == io.EOF {
+			fmt.Println("end")
+			break
+		} else if err != nil {
+			fmt.Println("error", err)
+			break
+		}
+
+		var fields []string
+		fields = strings.Fields(msg[0])
+		// fmt.Println("fields: ", fields)
+		switch fields[2] {
 		case "ping":
-			responseConnection("PONG", c)
-		case "quit":
-			responseConnection("QUIT", c)
+			responseConnection("PONG", conn)
+		case "echo":
+			responseConnection(fields[4], conn)
 		}
 	}
 }
@@ -44,6 +59,6 @@ func main() {
 		if err != nil {
 			log.Println(err)
 		}
-		go handleConnection(conn)
+		go handleBufferConn(conn)
 	}
 }
