@@ -9,10 +9,8 @@ import (
 	"strings"
 )
 
-// var kv map[string]string
-
 func handleBufferConn(kv map[string]string, conn net.Conn) {
-	// defer conn.Close()
+	defer conn.Close()
 
 	buf := make([]byte, 1024)
 	var msg []string
@@ -20,7 +18,7 @@ func handleBufferConn(kv map[string]string, conn net.Conn) {
 	for {
 		// read buf bytes from conn
 		n, err := conn.Read(buf)
-		// fmt.Printf("%d byte, data: %s\n", n, buf[:n])
+		// append buf to list of string
 		msg = append(msg, string(buf[:n]))
 		if err == io.EOF {
 			fmt.Println("end")
@@ -31,9 +29,8 @@ func handleBufferConn(kv map[string]string, conn net.Conn) {
 		}
 
 		var fields []string
+		// slicing substrings
 		fields = strings.Fields(msg[0])
-		// fmt.Println("fields: ", fields)
-		// fmt.Println("map: ", kv)
 
 		switch fields[2] {
 		case "ping":
@@ -47,21 +44,22 @@ func handleBufferConn(kv map[string]string, conn net.Conn) {
 			// conn.Write([]byte("+" + kv[fields[4]] + "\r\n"))
 			responseConnection(kv[fields[4]], conn)
 		}
+		// clear the request strings
+		msg = make([]string, 0)
 	}
 }
 
 func setValue(kv map[string]string, key, value string) map[string]string {
-	fmt.Printf("SET: %s, %s", key, value)
+	// fmt.Printf("SET: %s, %s", key, value)
 	kv[key] = value
-	fmt.Println(kv)
 	return kv
 }
 
-func getValue(kv map[string]string, key string) string {
-	fmt.Println(kv)
-	fmt.Println("GET: ", key)
-	return kv[key]
-}
+// func getValue(kv map[string]string, key string) string {
+// 	fmt.Println(kv)
+// 	fmt.Println("GET: ", key)
+// 	return kv[key]
+// }
 
 func responseConnection(s string, c net.Conn) {
 	c.Write([]byte("+" + s + "\r\n"))
