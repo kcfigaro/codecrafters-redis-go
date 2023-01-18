@@ -6,7 +6,9 @@ import (
 	"log"
 	"net"
 	"os"
+	"strconv"
 	"strings"
+	"time"
 )
 
 func handleBufferConn(kv map[string]string, conn net.Conn) {
@@ -31,6 +33,7 @@ func handleBufferConn(kv map[string]string, conn net.Conn) {
 		var fields []string
 		// slicing substrings
 		fields = strings.Fields(msg[0])
+		// fmt.Println("fields: ", fields)
 
 		switch fields[2] {
 		case "ping":
@@ -40,13 +43,25 @@ func handleBufferConn(kv map[string]string, conn net.Conn) {
 		case "set":
 			kv = setValue(kv, fields[4], fields[6])
 			responseConnection("OK", conn)
+			if len(fields) > 8 && fields[8] == "px" {
+				go expiryVaule(kv, fields[4], fields[10])
+			}
 		case "get":
 			// conn.Write([]byte("+" + kv[fields[4]] + "\r\n"))
-			responseConnection(kv[fields[4]], conn)
+			val := getValue(kv, fields[4])
+			responseConnection(val, conn)
 		}
 		// clear the request strings
 		msg = make([]string, 0)
 	}
+}
+
+func expiryVaule(kv map[string]string, key string, expiryTime string) {
+
+	seconds, _ := strconv.Atoi(expiryTime)
+	time.Sleep(time.Duration(seconds) * time.Microsecond)
+	// fmt.Println("expired ", key)
+	delete(kv, key)
 }
 
 func setValue(kv map[string]string, key, value string) map[string]string {
@@ -55,13 +70,15 @@ func setValue(kv map[string]string, key, value string) map[string]string {
 	return kv
 }
 
-// func getValue(kv map[string]string, key string) string {
-// 	fmt.Println(kv)
-// 	fmt.Println("GET: ", key)
-// 	return kv[key]
-// }
+func getValue(kv map[string]string, key string) string {
+	// fmt.Println("GET: ", key)
+	return kv[key]
+}
 
 func responseConnection(s string, c net.Conn) {
+	if len(s) == 0 {
+		c.Write([]byte("$-1\r\n"))
+	}
 	c.Write([]byte("+" + s + "\r\n"))
 }
 
